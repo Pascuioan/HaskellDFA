@@ -1,14 +1,12 @@
 import System.IO
 import System.Directory.Internal.Prelude (getArgs)
-import Data.ByteString (isInfixOf)
-import Data.Text (pack, count)
+import Data.Char (toUpper)
 import Control.Exception (Exception, throw)
-import GHC.Base (thenIO)
 
 newtype MyException = MyException String deriving (Show)
 instance Exception MyException
 -- generic datatype to encapsulate each component of a DFA
-data Component = States [String] | Alphabet [String] | Transitions [(String, String, String)] deriving (Show)
+data Component = States String [String] [String] | Alphabet [String] | Transitions [(String, String, String)] deriving (Show)
 
 main :: IO ()
 main = do
@@ -17,13 +15,21 @@ main = do
     print "Usage: ./Generator.exe <dfa_config_file>"
     return ()
   else do
-    fileH <- openFile "dfa.txt" ReadMode
+    fileH <- openFile (head args) ReadMode
     content <- hGetContents fileH
-    hClose fileH
     let valid = validate content
     if valid then do
       (c1, c2, c3) <- parse content
-      
+      -- print c1
+      -- print c2
+      -- print c3
+      outH <- openFile "out.hs" WriteMode
+      hPutStr outH "import System.Directory.Internal.Prelude (getArgs)\n\n"
+      writeComponent outH c1
+      writeComponent outH c2
+      writeComponent outH c3
+      hPutStr outH mainBlock
+      hClose outH
       return ()
     else do
       print ""
@@ -67,7 +73,14 @@ parse s = do
     return $ tuplify3 $ zipWith ($) functions (map (\(h:t) -> t) splitSections)
 
 parseStates :: [String] -> Component
-parseStates = States
+parseStates ls = States startState finalStates otherStates
+  where startState = filter (/= '!') $ head rawStates
+        finalStates = map (filter (/= '!')) $ filter isFinal rawStates
+        otherStates = filter (not . isFinal) rawStates
+        rawStates = map (map toUpper) ls
+
+isFinal :: String -> Bool
+isFinal s = '!' == last s
 
 parseAlphabet :: [String] -> Component
 parseAlphabet = Alphabet
@@ -76,7 +89,8 @@ parseTransitions :: [String] -> Component
 parseTransitions ls = Transitions $ parseTransitionsInner ls
   -- take each row with shape "state1 symbol state2" and turn it into ("state1", "symbol", "state2")
   -- and then pack them all int a Component
-  where parseTransitionsInner (h:t) = tuplify3 (split ' ' h) : parseTransitionsInner t 
+  where parseTransitionsInner (h:t) = tuplify3 [map toUpper state1, symbol, map toUpper state2] : parseTransitionsInner t
+          where [state1, symbol, state2] = split ' ' h
         parseTransitionsInner [] = []
 
 -- return a parsing function based on the section
@@ -100,5 +114,40 @@ split c = innerSplit c ""
           |otherwise = innerSplit c (acc ++ [h]) t
 
 -- funtion to print a component
-writeComponent :: Component -> Handle -> IO ()
-writeComponent = undefined
+writeComponent :: Handle -> Component -> IO ()
+writeComponent fileH (States startState finalStates otherStates) = do
+  let states = reverse . drop 3 . reverse $ foldr (\a b -> a ++ " | " ++ b) "" (finalStates ++ otherStates)
+  hPutStr fileH $ "data State = " ++ states ++ "\n\n" -- write the State datatype
+  hPutStr fileH "isFinal :: State -> Bool\n" -- write the isFinal function
+  let finalEvals = foldr ((\a b -> a ++ "\n" ++ b) . (\s -> "isFinal " ++ s ++ " = True")) "" finalStates
+  hPutStr fileH finalEvals
+  hPutStr fileH "isFinal _ = False\n\n"
+  hPutStr fileH $ "start :: State = " ++ startState ++ "\n\n" -- write the start state
+
+writeComponent fileH (Transitions ls) = do
+  hPutStr fileH "step :: State -> Char -> State\n"
+  let transitions = foldr ((\a b -> a ++ "\n" ++ b) . (\(s1, c, s2) -> concat ["step ", s1, " \'", c,"\' = ", s2])) "" ls
+  hPutStr fileH $ transitions ++ "\n"
+
+writeComponent _ _ = do return ()
+
+mainBlock :: String
+mainBlock = "steps :: State -> String -> State\n" ++
+       "steps state \"\" = state\n" ++
+       "steps state (h:t) = steps (step state h) t\n" ++
+       "\n" ++
+       "eval :: String -> IO Bool\n" ++
+       "eval s = do\n" ++
+       "  return $ isFinal $ steps start s\n" ++
+       "\n" ++
+       "main :: IO ()\n" ++
+       "main = do\n" ++
+       "  args <- getArgs\n" ++
+       "  if null args then\n" ++
+       "    print \"Error: no arguments received\"\n" ++
+       "  else do\n" ++
+       "    accepted <- eval $ head args\n" ++
+       "    if accepted then\n" ++
+       "      print \"Accepted\"\n" ++
+       "    else\n" ++
+       "      print \"Failure\""

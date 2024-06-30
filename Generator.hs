@@ -147,12 +147,12 @@ mainBlock =
   "  if null args then do\n" ++
   "    accepted <- eval \"\"\n" ++
   "    if accepted then\n" ++
-  "      print \"Accepted\"\n" ++
+  "      putStrLn \"Accepted\"\n" ++
   "    else\n" ++
-  "      print \"Failure\"\n" ++
+  "      putStrLn \"Failure\"\n" ++
   "  else do\n" ++
   "    accepted <- eval $ head args\n" ++
   "    if accepted then\n" ++
-  "      print \"Accepted\"\n" ++
+  "      putStrLn \"Accepted\"\n" ++
   "    else\n" ++
-  "      print \"Failure\""
+  "      putStrLn \"Failure\""

@@ -132,22 +132,27 @@ writeComponent fileH (Transitions ls) = do
 writeComponent _ _ = do return ()
 
 mainBlock :: String
-mainBlock = "steps :: State -> String -> State\n" ++
-       "steps state \"\" = state\n" ++
-       "steps state (h:t) = steps (step state h) t\n" ++
-       "\n" ++
-       "eval :: String -> IO Bool\n" ++
-       "eval s = do\n" ++
-       "  return $ isFinal $ steps start s\n" ++
-       "\n" ++
-       "main :: IO ()\n" ++
-       "main = do\n" ++
-       "  args <- getArgs\n" ++
-       "  if null args then\n" ++
-       "    print \"Error: no arguments received\"\n" ++
-       "  else do\n" ++
-       "    accepted <- eval $ head args\n" ++
-       "    if accepted then\n" ++
-       "      print \"Accepted\"\n" ++
-       "    else\n" ++
-       "      print \"Failure\""
+mainBlock = 
+  "steps :: State -> String -> State\n" ++
+  "steps state \"\" = state\n" ++
+  "steps state (h:t) = steps (step state h) t\n" ++
+  "\n" ++
+  "eval :: String -> IO Bool\n" ++
+  "eval s = do\n" ++
+  "  return $ isFinal $ steps start s\n" ++
+  "\n" ++
+  "main :: IO ()\n" ++
+  "main = do\n" ++
+  "  args <- getArgs\n" ++
+  "  if null args then do\n" ++
+  "    accepted <- eval \"\"\n" ++
+  "    if accepted then\n" ++
+  "      print \"Accepted\"\n" ++
+  "    else\n" ++
+  "      print \"Failure\"\n" ++
+  "  else do\n" ++
+  "    accepted <- eval $ head args\n" ++
+  "    if accepted then\n" ++
+  "      print \"Accepted\"\n" ++
+  "    else\n" ++
+  "      print \"Failure\""

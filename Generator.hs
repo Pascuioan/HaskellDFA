@@ -32,7 +32,6 @@ main = do
       hClose outH
       return ()
     else do
-      print ""
       return ()
 
 -- functions to validate the input
